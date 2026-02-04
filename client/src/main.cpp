@@ -1,56 +1,67 @@
-#include "../headers/client.h"
+// #include "../headers/client.h"
+#include "../headers/window.h"
+#include "../headers/messenger.h"
 
 int main() {
-
-	std::string name;
-	std::cout << "Enter your name: ";
-	std::getline(std::cin, name);
-
-
 	initscr();
-	SocketClient game1;
-	game1.clientName = name;
+	noecho();  // dont display typed char
+	curs_set(0); // dont display cursor
+	nodelay(stdscr, TRUE); // make getch non blocking
+	clear(); refresh();
 
-	// connect to main port to retrieve server port lists
-	game1.SetupSocket(game1.mainClientSocket, game1.mainServerAddr, MAIN_SERVER_PORT);
-	game1.ConnectToTheServer(game1.mainClientSocket, game1.mainServerAddr);
+	// handle user creation
+	WinBox boxCreateUser(50, 20, 0, 0, true, "Create user");
+	WINDOW *boxCreateUserHandler = boxCreateUser.GetHandle();
+	boxCreateUser.Focus();
 
-    // send username to server
-    std::string usernameMsg = "username." + name;
-    game1.SendToServer(game1.mainClientSocket, usernameMsg.c_str());
-    while (1) {
-		std::string reply = game1.ReceiveFromServer(game1.mainClientSocket);
-		if (reply.find("username.ok") != std::string::npos) break;
-    }
+	mvwprintw(boxCreateUserHandler, 2, 2, "Username> ");
+	wrefresh(boxCreateUserHandler);
+
+	std::string txt = boxCreateUser.GetInput();
+	mvwprintw(boxCreateUserHandler, 2, 2, "Username: %s", txt.c_str());
+	wrefresh(boxCreateUserHandler);
+
+	int height, width;
+	int logHeight = 10;
+	getmaxyx(stdscr, height, width);
+
+	// handle retriving list of server
+	WinBox boxServerList(width, height-logHeight, 0, 0, true, "Server list");
+	WINDOW *boxServerListHandler = boxServerList.GetHandle();
+	boxServerList.Focus();
+	wrefresh(boxServerListHandler);
+
+	// logs window
+	WinBox boxLogs(width, logHeight, 0, height-logHeight, true, "Logs");
+	WINDOW *boxLogsHandler = boxLogs.GetHandle();
+	wrefresh(boxLogsHandler);
+
+	
+
+	// handle server connection (connecting and retrieving server list)
+	Messenger msger;
+	if (!msger.SetupSocket(msger.mainClientSocket, msger.mainServerAddr, msger.MAIN_SERVER_PORT)) {
+		boxLogs.Print("Socket setup failed.");
+		wgetch(boxLogsHandler);
+		exit(1);
+	}
+
+	if (!msger.ConnectToTheServer(msger.mainClientSocket, msger.mainServerAddr)) {
+		boxLogs.Print("Failed to connect to the server.");
+		exit(1);
+	} else boxLogs.Print("[+] Connected to the server");
 
 
-	// request server list
-    std::vector<int> serverPortList;
-	game1.SendToServer(game1.mainClientSocket, "servers.username." + name);
-    while (1) {
-		std::string reply = game1.ReceiveFromServer(game1.mainClientSocket);
 
-		if (reply.find("servers.") != std::string::npos) {
-			int server1, server2, server3;
-			sscanf(reply.c_str(), "servers.%i,%i,%i", &server1, &server2, &server3);
-			serverPortList.push_back(server1);
-			serverPortList.push_back(server2);
-			serverPortList.push_back(server3);
 
-			std::cout << "Server list retrieved.\n";
-			break;
-		}
-    }
 
-	// main loop
-	while(1) {
-		// listen to server
-		std::string msg = game1.ReceiveFromServer(game1.mainClientSocket);
-		if (msg.length() > 0) {
-			printw(msg.c_str());
-			refresh();
-		}
-	};
 
+	// infinite loop
+	for (;;) {
+		char c = getch();
+		if (c == 'q') break;
+	}
+	clear();
+	endwin();
 	return 0;
 }
