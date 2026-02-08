@@ -1,40 +1,43 @@
 #include "../headers/messenger.h"
 
-int Messenger::GetServerList() {
-
+std::string Messenger::GetServerList() {
     SendToServer(mainClientSocket, "servers");
     std::vector<std::string> serverList;
+    int attempts = 0;
 
     while (1) {
-        std::string reply = ListenToServer(mainClientSocket);
+        if (attempts > 10) return "not ok";
 
-        if (reply.find("servers.")) {
-            std::vector<int> serverList;
-
-            // if (sscanf(reply, "servers.%i,%i,%i,%i") == 4) {
-            // }
-
-        }
+        std::string reply = ReceiveFromServer(mainClientSocket);
+        if (reply.find("servers.") != std::string::npos) {
+            break;
+        } else {
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            attempts++;
+        } 
     }
 
-    return currentSelected;
+    return "ok";
 }
 
-void Messenger::PrintServerListMenu(WINDOW *win, std::vector<std::int> serverList, int currentSelected) {
-    erase();
-    refresh();
+// if (sscanf(reply, "servers.%i,%i,%i,%i") == 4) {}
 
-    // loop through server list
-    int count = 0;
-    for (int s : serverList) {
-        printw("%i. %s", count+1, s.c_str());
+
+// void Messenger::PrintServerListMenu(WINDOW *win, std::vector<std::int> serverList, int currentSelected) {
+//     erase();
+//     refresh();
+
+//     // loop through server list
+//     int count = 0;
+//     for (int s : serverList) {
+//         printw("%i. %s", count+1, s.c_str());
      
-        if (count == currentSelected) printw(" <");
-        wprintw("\n");
-        wrefresh(win);
+//         if (count == currentSelected) printw(" <");
+//         wprintw("\n");
+//         wrefresh(win);
 
-        count++;
-    }
+//         count++;
+//     }
 
-    wrefresh();
-}
+//     wrefresh();
+// }

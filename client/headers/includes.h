@@ -4,6 +4,9 @@
 #include <vector>
 #include <sstream>
 #include <thread>
+#include <atomic>
+#include <string>
+#include <future>
 
 // socket
 #include <unistd.h>

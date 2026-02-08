@@ -49,19 +49,42 @@ int main() {
 	if (!msger.ConnectToTheServer(msger.mainClientSocket, msger.mainServerAddr)) {
 		boxLogs.Print("Failed to connect to the server.");
 		exit(1);
-	} else boxLogs.Print("[+] Connected to the server");
+	} else {
+		msger.SendToServer(msger.mainClientSocket, "username." + txt);
 
+		for (;;) {
+			if (msger.ReceiveFromServer(msger.mainClientSocket) == "username.ok")
+				break;
+		}
 
+		boxLogs.Print("[+] Connected to the server");
+	} 
 
+	// req server list
+	boxLogs.Print("[~] Requesting server list");
+	bool isServerListReceived = false;
+	std::future<std::string> serverListResult = std::async(std::launch::async, [&msger](){
+		return msger.GetServerList();
+	});
 
 
 
 	// infinite loop
 	for (;;) {
+		if (!isServerListReceived) {
+			if (serverListResult.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+			    std::string servers = serverListResult.get();
+			    if (servers == "ok") {
+					boxLogs.Print("[+] Successfully received server list");
+					isServerListReceived = true;
+			    } else boxLogs.Print("[!] Failed received server list");
+			}			
+		}
+
 		char c = getch();
 		if (c == 'q') break;
 	}
-	clear();
-	endwin();
+
+	clear(); endwin();
 	return 0;
 }
