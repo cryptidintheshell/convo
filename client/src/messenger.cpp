@@ -1,23 +1,29 @@
 #include "../headers/messenger.h"
 
-std::string Messenger::GetServerList() {
+std::string Messenger::GetServerList(std::atomic<bool> &stopFlag) {
     SendToServer(mainClientSocket, "servers");
-    std::vector<std::string> serverList;
     int attempts = 0;
 
-    while (1) {
-        if (attempts > 10) return "not ok";
+    while (attempts < 10) {
+        if (stopFlag.load()) {
+            return "cancelled";
+        }
 
         std::string reply = ReceiveFromServer(mainClientSocket);
+
+        if (reply == "socket_error" || reply == "socket_closed") {
+            return "connection_lost";
+        }
+
         if (reply.find("servers.") != std::string::npos) {
-            break;
-        } else {
-            std::this_thread::sleep_for(std::chrono::seconds(3));
-            attempts++;
-        } 
+            return "ok";
+        }
+
+        attempts++;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
-    return "ok";
+    return "timeout";
 }
 
 // if (sscanf(reply, "servers.%i,%i,%i,%i") == 4) {}

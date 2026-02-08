@@ -34,6 +34,10 @@ bool SocketClient::ConnectToTheServer(int& clientSocket, const sockaddr_in& serv
         return false;
     }
 
+    struct timeval tv;
+    tv.tv_sec = 1;       // 1 second timeout
+    tv.tv_usec = 0;
+    setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO, (const struct timeval *)&tv, sizeof(struct timeval));
     return true;
 }
 
@@ -50,13 +54,19 @@ bool SocketClient::SendToServer(int& socketFd, const std::string& msg) {
 
 std::string SocketClient::ReceiveFromServer(int& socketFd) {
 	char buffer[BUFFER_SIZE];
+    memset(buffer, 0, BUFFER_SIZE);
     std::string msg(buffer);
 
     ssize_t bytes = recv(socketFd, buffer, BUFFER_SIZE - 1, 0);
     if (bytes < 0) {
-        perror("[!] Server closed.");
-        exit(1);
+        // EAGAIN means the timeout was reached and no data was waiting
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return ""; // Return empty string so the loop can check the stopFlag
+        }
+        return "socket_error"; 
     }
+
+    if (bytes == 0) return "socket closed";
 
     buffer[bytes] = '\0';
     return std::string(buffer);

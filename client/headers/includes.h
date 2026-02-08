@@ -7,6 +7,8 @@
 #include <atomic>
 #include <string>
 #include <future>
+#include <sys/time.h>
+#include <errno.h>
 
 // socket
 #include <unistd.h>

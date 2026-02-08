@@ -62,27 +62,43 @@ int main() {
 
 	// req server list
 	boxLogs.Print("[~] Requesting server list");
-	bool isServerListReceived = false;
-	std::future<std::string> serverListResult = std::async(std::launch::async, [&msger](){
-		return msger.GetServerList();
+	int isServerListReceived = 0;
+	std::atomic<bool> stopServerListRequest(false);
+	std::future<std::string> serverListResult = std::async(std::launch::async, [&msger, &stopServerListRequest](){
+		return msger.GetServerList(stopServerListRequest);
 	});
 
 
 
 	// infinite loop
 	for (;;) {
-		if (!isServerListReceived) {
-			if (serverListResult.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-			    std::string servers = serverListResult.get();
-			    if (servers == "ok") {
-					boxLogs.Print("[+] Successfully received server list");
-					isServerListReceived = true;
-			    } else boxLogs.Print("[!] Failed received server list");
-			}			
+		char c = getch();
+		if (c == 'q') {
+			if (stopServerListRequest) stopServerListRequest = true;
+			close(msger.mainClientSocket);
+			break;
 		}
 
-		char c = getch();
-		if (c == 'q') break;
+		if (isServerListReceived == 0) { 
+		    if (serverListResult.valid() && 
+		        serverListResult.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+
+		        try {
+		            std::string servers = serverListResult.get();
+		            if (servers == "ok") {
+		                boxLogs.Print("[+] Successfully received server list");
+		                isServerListReceived = 1;
+		            } else {
+		                boxLogs.Print("[!] Failed to receive server list: " + servers);
+		                isServerListReceived = -1;
+		            }
+
+		        } catch (const std::exception& e) {
+		            boxLogs.Print("[!] Thread Error: " + std::string(e.what()));
+		            isServerListReceived = -1;
+		        }
+		    }
+		}
 	}
 
 	clear(); endwin();
